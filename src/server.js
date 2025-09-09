@@ -4,8 +4,8 @@ const mongoose = require('mongoose');
 const cookieParser = require('cookie-parser');
 const cors = require('cors');
 
-const authRoutes = require('./routes/auth');          // Auth routes (login/register/refresh/logout)
-const protectedRoutes = require('./routes/protected'); // Example protected routes
+const authRoutes = require('./routes/auth');
+const protectedRoutes = require('./routes/protected');
 
 const app = express();
 
@@ -21,7 +21,7 @@ app.use(cors({
 app.use('/api/auth', authRoutes);
 app.use('/api/protected', protectedRoutes);
 
-// MongoDB connection
+
 mongoose.connect(process.env.MONGO_URI)
     .then(() => console.log('MongoDB connected'))
     .catch((err) => console.error('MongoDB connection error:', err));

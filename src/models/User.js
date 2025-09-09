@@ -4,10 +4,16 @@ const jwt = require("jsonwebtoken");
 
 const UserSchema = new mongoose.Schema(
     {
-        name: { type: String, required: true, trim: true },
+        firstName: { type: String, required: true, trim: true },
+        lastName: { type: String, required: true, trim: true },
         email: { type: String, required: true, unique: true, lowercase: true },
         password: { type: String, required: true, minlength: 6 },
+        address: { type: String, default: "" },
+
         refreshToken: { type: String, default: null },
+        isVerified: { type: Boolean, default: false }, // for OTP verification
+        otp: { type: String, default: null },
+        otpExpiry: { type: Date, default: null },
     },
     { timestamps: true }
 );
@@ -30,7 +36,7 @@ UserSchema.methods.generateAccessToken = function () {
     return jwt.sign(
         { id: this._id, email: this.email },
         process.env.ACCESS_TOKEN_SECRET,
-        { expiresIn: "15m" } // short-lived
+        { expiresIn: "15m" }
     );
 };
 
