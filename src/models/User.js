@@ -10,6 +10,20 @@ const UserSchema = new mongoose.Schema(
         password: { type: String, required: true, minlength: 6 },
         address: { type: String, default: "" },
 
+        // Optional phone field
+        phone: {
+            type: String,
+            unique: true,
+            sparse: true, // allows multiple users without phone
+            validate: {
+                validator: function (v) {
+                    if (!v || v.trim() === "") return true; // allow empty/null
+                    return /^[0-9]{10}$/.test(v); // validate only if phone is provided
+                },
+                message: "Please enter a valid 10-digit phone number",
+            },
+        },
+
         refreshToken: { type: String, default: null },
         isVerified: { type: Boolean, default: false },
         otp: { type: String, default: null },
@@ -34,7 +48,7 @@ UserSchema.methods.comparePassword = function (candidate) {
 // Generate Access Token
 UserSchema.methods.generateAccessToken = function () {
     return jwt.sign(
-        { id: this._id, email: this.email },
+        { id: this._id, email: this.email, phone: this.phone },
         process.env.ACCESS_TOKEN_SECRET,
         { expiresIn: "15m" }
     );
