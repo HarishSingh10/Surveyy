@@ -34,8 +34,9 @@ router.post("/register", async (req, res) => {
     try {
         const { firstName, lastName, email, phone, password, confirmPassword, address } = req.body;
 
-        if (!firstName || !lastName || !email || !phone || !password || !confirmPassword || !address) {
-            return res.status(400).json({ success: false, message: "All fields are required" });
+        // ✅ Validation (address is now optional)
+        if (!firstName || !lastName || !email || !phone || !password || !confirmPassword) {
+            return res.status(400).json({ success: false, message: "Required fields are missing" });
         }
 
         if (password !== confirmPassword) {
@@ -43,9 +44,14 @@ router.post("/register", async (req, res) => {
         }
 
         const exists = await User.findOne({ email });
-        if (exists) return res.status(409).json({ success: false, message: "Email already in use" });
+        if (exists) {
+            return res.status(409).json({ success: false, message: "Email already in use" });
+        }
 
+        // ✅ Generate OTP
         const otp = Math.floor(100000 + Math.random() * 900000).toString();
+
+        // ✅ Store OTP with optional address + phone
         otpStore[email] = {
             otp,
             expiresAt: Date.now() + 10 * 60 * 1000,
@@ -54,10 +60,13 @@ router.post("/register", async (req, res) => {
                 lastName,
                 email,
                 password,
-                address,
-                phone: phone && phone.trim() !== "" ? phone : undefined, // <- optional phone
+                phone: phone && phone.trim() !== "" ? phone : undefined,
+                address: address && address.trim() !== "" ? address : undefined, // <- optional address
             },
         };
+
+
+
 
 
         await sendOTP(email, otp);
