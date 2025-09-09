@@ -76,29 +76,64 @@ router.post("/register", async (req, res) => {
         res.status(500).json({ success: false, message: "Server error", error: err.message });
     }
 });
+const isProd = process.env.NODE_ENV === "production";
 
+// ----------------- Verify Signup OTP -----------------
 // ----------------- Verify Signup OTP -----------------
 router.post("/verify-otp", async (req, res) => {
     try {
         const { email, otp } = req.body;
         const record = otpStore[email];
 
-
-
         if (!record) return res.status(400).json({ success: false, message: "OTP not found" });
+
         if (Date.now() > record.expiresAt) {
             delete otpStore[email];
             return res.status(400).json({ success: false, message: "OTP expired" });
         }
-        if (record.otp !== otp) return res.status(400).json({ success: false, message: "Invalid OTP" });
 
+        if (record.otp !== otp) {
+            return res.status(400).json({ success: false, message: "Invalid OTP" });
+        }
+
+        // ✅ Create user from stored data
         const user = await User.create(record.data);
+
+        // ✅ Mark verified
+        user.isVerified = true;
+
+        // ✅ Generate tokens
+        const accessToken = user.generateAccessToken();
+        const refreshToken = user.generateRefreshToken();
+        user.refreshToken = refreshToken;
+
+        await user.save();
+
+        // ✅ Store refresh token in cookie
+        res.cookie("refreshToken", refreshToken, {
+            httpOnly: true,
+            // secure: isProd,
+            sameSite: "strict",
+            path: "/api/auth/refresh",
+            maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+        });
+
+        // ✅ Clean up OTP
         delete otpStore[email];
 
+        // ✅ Respond with tokens
         res.status(201).json({
             success: true,
             message: "User registered successfully",
-            user: { id: user._id, firstName: user.firstName, lastName: user.lastName, email: user.email, phone: user.phone, address: user.address },
+            user: {
+                id: user._id,
+                firstName: user.firstName,
+                lastName: user.lastName,
+                email: user.email,
+                phone: user.phone,
+                address: user.address,
+            },
+            accessToken,
         });
     } catch (err) {
         res.status(500).json({ success: false, message: "Server error", error: err.message });
@@ -132,7 +167,6 @@ router.post("/login-verify-otp", async (req, res) => {
     try {
         const { email, otp } = req.body;
         const record = otpStore[email];
-
         if (!record) return res.status(400).json({ success: false, message: "OTP not found" });
         if (Date.now() > record.expiresAt) {
             delete otpStore[email];
