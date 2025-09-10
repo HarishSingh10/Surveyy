@@ -302,13 +302,11 @@ router.post("/refresh", async (req, res) => {
             return res.status(401).json({ success: false, message: "No refresh token provided" });
         }
 
-        // Find user with refreshToken
         const user = await User.findOne({ refreshToken });
         if (!user) {
             return res.status(403).json({ success: false, message: "Invalid refresh token" });
         }
 
-        // Verify token
         jwt.verify(refreshToken, process.env.REFRESH_TOKEN_SECRET, async (err, decoded) => {
             if (err || user._id.toString() !== decoded.id) {
                 return res.status(403).json({ success: false, message: "Invalid or expired refresh token" });
@@ -318,28 +316,27 @@ router.post("/refresh", async (req, res) => {
             const newAccessToken = user.generateAccessToken();
             const newRefreshToken = user.generateRefreshToken();
 
-            // Update user refreshToken
             user.refreshToken = newRefreshToken;
             await user.save();
 
-            // Send new refresh token in cookie
+            // Update refresh token in cookie
             res.cookie("refreshToken", newRefreshToken, {
                 httpOnly: true,
                 sameSite: "strict",
                 path: "/api/auth/refresh",
-                maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+                maxAge: 7 * 24 * 60 * 60 * 1000,
             });
 
             res.json({
                 success: true,
                 accessToken: newAccessToken,
+                refreshToken: newRefreshToken, // ✅ include refresh token in response
             });
         });
     } catch (err) {
         res.status(500).json({ success: false, message: "Server error", error: err.message });
     }
 });
-
 // ----------------- Logout -----------------
 router.post("/logout", async (req, res) => {
     try {
