@@ -134,6 +134,7 @@ router.post("/verify-otp", async (req, res) => {
                 address: user.address,
             },
             accessToken,
+            refreshToken,
         });
     } catch (err) {
         res.status(500).json({ success: false, message: "Server error", error: err.message });
@@ -188,6 +189,7 @@ router.post("/login-verify-otp", async (req, res) => {
             message: "Login successful",
             user: { id: user._id, firstName: user.firstName, lastName: user.lastName, email: user.email, phone: user.phone },
             accessToken,
+            refreshToken,
         });
     } catch (err) {
         res.status(500).json({ success: false, message: "Server error", error: err.message });
