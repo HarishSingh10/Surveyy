@@ -293,3 +293,69 @@ router.post("/reset-password", async (req, res) => {
         res.status(500).json({ success: false, message: "Server error", error: err.message });
     }
 });
+// ----------------- Refresh Access Token -----------------
+router.post("/refresh", async (req, res) => {
+    try {
+        const refreshToken = req.cookies.refreshToken || req.body.refreshToken;
+
+        if (!refreshToken) {
+            return res.status(401).json({ success: false, message: "No refresh token provided" });
+        }
+
+        // Find user with refreshToken
+        const user = await User.findOne({ refreshToken });
+        if (!user) {
+            return res.status(403).json({ success: false, message: "Invalid refresh token" });
+        }
+
+        // Verify token
+        jwt.verify(refreshToken, process.env.REFRESH_TOKEN_SECRET, async (err, decoded) => {
+            if (err || user._id.toString() !== decoded.id) {
+                return res.status(403).json({ success: false, message: "Invalid or expired refresh token" });
+            }
+
+            // Generate new tokens
+            const newAccessToken = user.generateAccessToken();
+            const newRefreshToken = user.generateRefreshToken();
+
+            // Update user refreshToken
+            user.refreshToken = newRefreshToken;
+            await user.save();
+
+            // Send new refresh token in cookie
+            res.cookie("refreshToken", newRefreshToken, {
+                httpOnly: true,
+                sameSite: "strict",
+                path: "/api/auth/refresh",
+                maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+            });
+
+            res.json({
+                success: true,
+                accessToken: newAccessToken,
+            });
+        });
+    } catch (err) {
+        res.status(500).json({ success: false, message: "Server error", error: err.message });
+    }
+});
+
+// ----------------- Logout -----------------
+router.post("/logout", async (req, res) => {
+    try {
+        const refreshToken = req.cookies.refreshToken || req.body.refreshToken;
+
+        if (refreshToken) {
+            const user = await User.findOne({ refreshToken });
+            if (user) {
+                user.refreshToken = null;
+                await user.save();
+            }
+        }
+
+        res.clearCookie("refreshToken", { path: "/api/auth/refresh" });
+        res.json({ success: true, message: "Logged out successfully" });
+    } catch (err) {
+        res.status(500).json({ success: false, message: "Server error", error: err.message });
+    }
+});
