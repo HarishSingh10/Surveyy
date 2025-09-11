@@ -32,14 +32,14 @@ createTable();
 
 const User = {
     // Create a new user
-    async create({ firstName, lastName, email, password, phone, address }) {
+    async create({ first_name, last_name, email, password, phone, address }) {
         const salt = await bcrypt.genSalt(10);
         const hashedPassword = await bcrypt.hash(password, salt);
 
         const result = await pool.query(
             `INSERT INTO users (first_name, last_name, email, password, phone, address)
              VALUES ($1, $2, $3, $4, $5, $6) RETURNING *`,
-            [firstName, lastName, email, hashedPassword, phone || null, address || ""]
+            [first_name, last_name, email, hashedPassword, phone || null, address || ""]
         );
         return result.rows[0];
     },
