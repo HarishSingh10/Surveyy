@@ -18,7 +18,7 @@ router.get("/profile", authMiddleware, async (req, res) => {
 });
 
 // Update user profile
-router.put("/profile", authMiddleware, async (req, res) => {
+router.put("/update-profile", authMiddleware, async (req, res) => {
     try {
         const updates = { ...req.body };
 

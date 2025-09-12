@@ -51,9 +51,9 @@ const generateRefreshToken = (user) =>
 // ----------------- Register -----------------
 router.post("/register", async (req, res) => {
     try {
-        const { first_Name, last_name, email, phone, password, confirmPassword, address } = req.body;
+        const { first_name, last_name, email, phone, password, confirmPassword, address } = req.body;
 
-        if (!first_Name || !last_name || !email || !phone || !password || !confirmPassword) {
+        if (!first_name || !last_name || !email || !phone || !password || !confirmPassword) {
             return res.status(400).json({ success: false, message: "Required fields are missing" });
         }
         if (password !== confirmPassword) {
@@ -69,7 +69,7 @@ router.post("/register", async (req, res) => {
         otpStore[email] = {
             otp,
             expiresAt: Date.now() + 10 * 60 * 1000,
-            data: { first_Name, last_name, email, password, phone, address },
+            data: { first_name, last_name, email, password, phone, address },
         };
 
         await sendOTP(email, otp);
@@ -98,7 +98,7 @@ router.post("/verify-otp", async (req, res) => {
             `INSERT INTO users (first_name, last_name, email, password, phone, address, is_verified)
        VALUES ($1, $2, $3, $4, $5, $6, true)
        RETURNING id, first_name, last_name, email, phone, address`,
-            [record.data.first_Name, record.data.last_name, record.data.email, hashedPassword, record.data.phone, record.data.address]
+            [record.data.first_name, record.data.last_name, record.data.email, hashedPassword, record.data.phone, record.data.address]
         );
 
         const user = newUser.rows[0];
@@ -168,7 +168,7 @@ router.post("/login-verify-otp", async (req, res) => {
         res.json({
             success: true,
             message: "Login successful",
-            user: { id: user.id, first_Name: user.first_name, last_name: user.last_name, email: user.email, phone: user.phone },
+            user: { id: user.id, first_name: user.first_name, last_name: user.last_name, email: user.email, phone: user.phone },
             accessToken,
             refreshToken,
         });
