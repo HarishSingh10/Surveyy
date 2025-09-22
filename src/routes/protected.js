@@ -46,7 +46,6 @@ router.put(
                 updates.profile_image = req.file.path;
             }
 
-            // Restrict sensitive updates
             delete updates.role;
             delete updates.refresh_token;
             delete updates.password;
@@ -61,7 +60,6 @@ router.put(
                 return res.status(404).json({ message: "User not found" });
             }
 
-            // Remove sensitive fields before sending response
             const { password, refresh_token, otp, otp_expiry, ...safeUser } =
                 updatedUser;
 
@@ -81,9 +79,6 @@ router.put(
 
 
 
-// =============================
-// Get forms by branch ID
-// =============================
 router.get("/forms/:branch_id", authMiddleware, async (req, res) => {
     try {
         const { branch_id } = req.params;
@@ -113,7 +108,7 @@ router.get("/forms/:branch_id", authMiddleware, async (req, res) => {
 router.post("/submit-feedback", authMiddleware, async (req, res) => {
     try {
         const { form_id, answers, overall_score } = req.body;
-        const user_iid = req.user.id; // authenticated user
+        const user_iid = req.user.id;
 
         if (!form_id || !answers || !overall_score) {
             return res.status(400).json({ success: false, message: "Missing required fields" });
@@ -123,7 +118,7 @@ router.post("/submit-feedback", authMiddleware, async (req, res) => {
             return res.status(400).json({ success: false, message: "Overall score must be between 1 and 5" });
         }
 
-        // 1️⃣ Save feedback response
+
         const feedbackResult = await pool.query(
             `INSERT INTO feedback_responses (form_id, user_iid, answers, overall_score)
              VALUES ($1, $2, $3, $4) RETURNING *`,
@@ -132,7 +127,7 @@ router.post("/submit-feedback", authMiddleware, async (req, res) => {
 
         const feedback = feedbackResult.rows[0];
 
-        // 2️⃣ Get admin coupon settings
+
         const settingsResult = await pool.query(
             `SELECT * FROM coupon_settings WHERE type='feedback' LIMIT 1`
         );
@@ -140,7 +135,7 @@ router.post("/submit-feedback", authMiddleware, async (req, res) => {
 
         let coupon = null;
 
-        // 3️⃣ Check if user qualifies for a coupon
+
         if (settings && overall_score >= settings.min_score) {
             const expiresAt = new Date();
             expiresAt.setDate(expiresAt.getDate() + settings.validity_days);
