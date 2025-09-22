@@ -1,16 +1,20 @@
 const express = require("express");
 const router = express.Router();
 const jwt = require("jsonwebtoken");
+const pool = require("../config/db");
 const bcrypt = require("bcryptjs");
 const nodemailer = require("nodemailer");
-const { Pool } = require("pg");
+
 const authMiddleware = require("../middleware/auth");
 
 // ✅ Postgres pool
-const pool = new Pool({
-    connectionString: process.env.DATABASE_URL,
-    ssl: { rejectUnauthorized: false },
-});
+// const { Pool } = require("pg");
+
+// const pool = new Pool({
+//     connectionString: process.env.DATABASE_URL,
+//     ssl: { rejectUnauthorized: false },
+// });
+
 
 // ✅ Nodemailer transporter
 const transporter = nodemailer.createTransport({
@@ -60,7 +64,7 @@ router.post("/register", async (req, res) => {
             return res.status(400).json({ success: false, message: "Passwords do not match" });
         }
 
-        const existingUser = await pool.query("SELECT * FROM users WHERE email = $1", [email]);
+        const existingUser = await pool.query("SELECT * FROM coustomer WHERE email = $1", [email]);
         if (existingUser.rows.length > 0) {
             return res.status(409).json({ success: false, message: "Email already in use" });
         }
@@ -95,7 +99,7 @@ router.post("/verify-otp", async (req, res) => {
         const hashedPassword = await bcrypt.hash(record.data.password, 10);
 
         const newUser = await pool.query(
-            `INSERT INTO users (first_name, last_name, email, password, phone, address, is_verified)
+            `INSERT INTO coustomer (first_name, last_name, email, password, phone, address, is_verified)
        VALUES ($1, $2, $3, $4, $5, $6, true)
        RETURNING id, first_name, last_name, email, phone, address`,
             [record.data.first_name, record.data.last_name, record.data.email, hashedPassword, record.data.phone, record.data.address]
@@ -105,7 +109,7 @@ router.post("/verify-otp", async (req, res) => {
         const accessToken = generateAccessToken(user);
         const refreshToken = generateRefreshToken(user);
 
-        await pool.query("UPDATE users SET refresh_token = $1 WHERE id = $2", [refreshToken, user.id]);
+        await pool.query("UPDATE coustomer SET refresh_token = $1 WHERE id = $2", [refreshToken, user.id]);
 
         res.cookie("refreshToken", refreshToken, {
             httpOnly: true,
@@ -127,7 +131,7 @@ router.post("/login", async (req, res) => {
         const { email, password } = req.body;
         if (!email || !password) return res.status(400).json({ success: false, message: "Email and password required" });
 
-        const result = await pool.query("SELECT * FROM users WHERE email = $1", [email]);
+        const result = await pool.query("SELECT * FROM coustomer WHERE email = $1", [email]);
         const user = result.rows[0];
         if (!user || !(await bcrypt.compare(password, user.password))) {
             return res.status(401).json({ success: false, message: "Invalid credentials" });
@@ -156,14 +160,14 @@ router.post("/login-verify-otp", async (req, res) => {
         }
         if (record.otp !== otp) return res.status(400).json({ success: false, message: "Invalid OTP" });
 
-        const result = await pool.query("SELECT * FROM users WHERE id = $1", [record.data.userId]);
+        const result = await pool.query("SELECT * FROM coustomer WHERE id = $1", [record.data.userId]);
         const user = result.rows[0];
         delete otpStore[email];
 
         const accessToken = generateAccessToken(user);
         const refreshToken = generateRefreshToken(user);
 
-        await pool.query("UPDATE users SET refresh_token = $1 WHERE id = $2", [refreshToken, user.id]);
+        await pool.query("UPDATE coustomer SET refresh_token = $1 WHERE id = $2", [refreshToken, user.id]);
 
         res.json({
             success: true,
@@ -183,7 +187,7 @@ router.post("/forgot-password", async (req, res) => {
         const { email } = req.body;
         if (!email) return res.status(400).json({ success: false, message: "Email is required" });
 
-        const result = await pool.query("SELECT * FROM users WHERE email = $1", [email]);
+        const result = await pool.query("SELECT * FROM coustomer WHERE email = $1", [email]);
         const user = result.rows[0];
         if (!user) return res.status(404).json({ success: false, message: "User not found" });
 
@@ -229,7 +233,7 @@ router.post("/reset-password", async (req, res) => {
         const decoded = jwt.verify(resetToken, process.env.ACCESS_TOKEN_SECRET);
         const hashedPassword = await bcrypt.hash(newPassword, 10);
 
-        await pool.query("UPDATE users SET password = $1 WHERE email = $2", [hashedPassword, decoded.email]);
+        await pool.query("UPDATE coustomer SET password = $1 WHERE email = $2", [hashedPassword, decoded.email]);
         delete passwordResetOTP[decoded.email];
 
         res.json({ success: true, message: "Password reset successfully" });
@@ -244,7 +248,7 @@ router.post("/refresh", async (req, res) => {
         const refreshToken = req.cookies.refreshToken || req.body.refreshToken;
         if (!refreshToken) return res.status(401).json({ success: false, message: "No refresh token provided" });
 
-        const result = await pool.query("SELECT * FROM users WHERE refresh_token = $1", [refreshToken]);
+        const result = await pool.query("SELECT * FROM coustomer WHERE refresh_token = $1", [refreshToken]);
         const user = result.rows[0];
         if (!user) return res.status(403).json({ success: false, message: "Invalid refresh token" });
 
@@ -254,7 +258,7 @@ router.post("/refresh", async (req, res) => {
             const newAccessToken = generateAccessToken(user);
             const newRefreshToken = generateRefreshToken(user);
 
-            await pool.query("UPDATE users SET refresh_token = $1 WHERE id = $2", [newRefreshToken, user.id]);
+            await pool.query("UPDATE coustomer SET refresh_token = $1 WHERE id = $2", [newRefreshToken, user.id]);
 
             res.cookie("refreshToken", newRefreshToken, {
                 httpOnly: true,
@@ -275,7 +279,7 @@ router.post("/logout", async (req, res) => {
     try {
         const refreshToken = req.cookies.refreshToken || req.body.refreshToken;
         if (refreshToken) {
-            await pool.query("UPDATE users SET refresh_token = NULL WHERE refresh_token = $1", [refreshToken]);
+            await pool.query("UPDATE coustomer SET refresh_token = NULL WHERE refresh_token = $1", [refreshToken]);
         }
 
         res.clearCookie("refreshToken", { path: "/api/auth/refresh" });
@@ -284,5 +288,75 @@ router.post("/logout", async (req, res) => {
         res.status(500).json({ success: false, message: "Server error", error: err.message });
     }
 });
+
+
+// 4️⃣ (Optional) Get All Feedback Responses for a Branch
+router.get("/feedback/responses/:branch_id", authMiddleware, async (req, res) => {
+    try {
+        const { branch_id } = req.params;
+
+        const result = await pool.query(
+            `SELECT r.*, f.form_title 
+             FROM feedback_responses r
+             JOIN feedback_forms f ON r.form_id = f.id
+             WHERE f.branch_id = $1`,
+            [branch_id]
+        );
+
+        res.json({ success: true, responses: result.rows });
+    } catch (err) {
+        console.error("❌ Error fetching feedback responses:", err);
+        res.status(500).json({ success: false, message: err.message });
+    }
+});
+
+// POST /referrals/create
+router.post("/create", authMiddleware, async (req, res) => {
+    try {
+        const referrerId = req.user.id; // from JWT
+        const referralCode = `REF-${Math.random().toString(36).substring(2, 8)}`;
+
+        const result = await pool.query(
+            `INSERT INTO referrals (referrer_id, referral_code)
+       VALUES ($1, $2) RETURNING referral_code`,
+            [referrerId, referralCode]
+        );
+
+        res.json({
+            referral_link: `http://localhost:5000/referral/${result.rows[0].referral_code}`
+        });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: "Error creating referral link" });
+    }
+});
+// GET /referral/:code
+router.get("/referral/:code", async (req, res) => {
+    try {
+        const { code } = req.params;
+        const userAgent = req.headers["user-agent"];
+
+        // Save click
+        await pool.query(
+            `INSERT INTO referral_clicks (referral_code, device_info, redirected_to)
+             VALUES ($1, $2, $3)`,
+            [code, userAgent, "playstore"] // default playstore
+        );
+
+        // Check if user is on mobile or web
+        if (/Android|iPhone|iPad/i.test(userAgent)) {
+            // 👉 Mobile: Redirect to Play Store (if app not installed)
+            return res.redirect(
+                `https://play.google.com/store/apps/details?id=com.yourapp&referral_code=${code}`
+            );
+        } else {
+            // 👉 Web: Redirect to signup page with referral
+            return res.redirect(`https://yourapp.com/signup?referral_code=${code}`);
+        }
+    } catch (err) {
+        res.status(500).json({ success: false, message: err.message });
+    }
+});
+
 
 module.exports = router;

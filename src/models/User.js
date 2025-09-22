@@ -11,7 +11,7 @@ const pool = new Pool({
 // ✅ Create User table if it doesn't exist
 const createTable = async () => {
     await pool.query(`
-        CREATE TABLE IF NOT EXISTS users (
+        CREATE TABLE IF NOT EXISTS coustomer (
             id SERIAL PRIMARY KEY,
             first_name VARCHAR(100) NOT NULL,
             last_name VARCHAR(100) NOT NULL,
@@ -23,8 +23,31 @@ const createTable = async () => {
             is_verified BOOLEAN DEFAULT FALSE,
             otp VARCHAR(10) DEFAULT NULL,
             otp_expiry TIMESTAMP DEFAULT NULL,
+            profile_image TEXT DEFAULT NULL,
             created_at TIMESTAMP DEFAULT NOW(),
             updated_at TIMESTAMP DEFAULT NOW()
+        );
+    `);
+    await pool.query(`
+    CREATE TABLE IF NOT EXISTS feedback_responses (
+        id SERIAL PRIMARY KEY,
+        form_id INT REFERENCES feedback_forms(id) ON DELETE CASCADE,
+        user_iid INT REFERENCES coustomer(id) ON DELETE CASCADE,
+        answers JSONB NOT NULL,
+        overall_score SMALLINT NOT NULL CHECK (overall_score BETWEEN 1 AND 5),
+        created_at TIMESTAMP DEFAULT NOW()
+    );
+`);
+
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS referral_clicks (
+        id SERIAL PRIMARY KEY,
+        referral_code VARCHAR(50) NOT NULL,
+        clicked_at TIMESTAMP DEFAULT NOW(),
+        device_info VARCHAR(255),
+        redirected_to VARCHAR(100)  
+
+
         );
     `);
 };
@@ -32,27 +55,27 @@ createTable();
 
 const User = {
     // Create a new user
-    async create({ first_name, last_name, email, password, phone, address }) {
+    async create({ first_name, last_name, email, password, phone, address, profile_image }) {
         const salt = await bcrypt.genSalt(10);
         const hashedPassword = await bcrypt.hash(password, salt);
 
         const result = await pool.query(
-            `INSERT INTO users (first_name, last_name, email, password, phone, address)
-             VALUES ($1, $2, $3, $4, $5, $6) RETURNING *`,
-            [first_name, last_name, email, hashedPassword, phone || null, address || ""]
+            `INSERT INTO coustomer (first_name, last_name, email, password, phone, address, profile_image)
+             VALUES ($1, $2, $3, $4, $5, $6,$7) RETURNING *`,
+            [first_name, last_name, email, hashedPassword, phone || null, address || "", profile_image || null]
         );
         return result.rows[0];
     },
 
     // Find user by email
     async findByEmail(email) {
-        const result = await pool.query("SELECT * FROM users WHERE email = $1", [email]);
+        const result = await pool.query("SELECT * FROM coustomer WHERE email = $1", [email]);
         return result.rows[0];
     },
 
     // Find user by ID
     async findById(id) {
-        const result = await pool.query("SELECT * FROM users WHERE id = $1", [id]);
+        const result = await pool.query("SELECT * FROM coustomer WHERE id = $1", [id]);
         return result.rows[0];
     },
 
@@ -66,7 +89,7 @@ const User = {
         values.push(id);
 
         const result = await pool.query(
-            `UPDATE users SET ${setQuery}, updated_at = NOW() WHERE id = $${values.length} RETURNING *`,
+            `UPDATE coustomer SET ${setQuery}, updated_at = NOW() WHERE id = $${values.length} RETURNING *`,
             values
         );
 
@@ -94,7 +117,7 @@ const User = {
 
     // Save refresh token
     async saveRefreshToken(id, refreshToken) {
-        await pool.query("UPDATE users SET refresh_token = $1 WHERE id = $2", [refreshToken, id]);
+        await pool.query("UPDATE coustomer SET refresh_token = $1 WHERE id = $2", [refreshToken, id]);
     },
 };
 
