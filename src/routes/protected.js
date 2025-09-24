@@ -164,5 +164,29 @@ router.post("/submit-feedback", authMiddleware, async (req, res) => {
     }
 });
 
+// ✅ Get all feedbacks of logged-in user (recent first)
+router.get("/my-feedbacks", authMiddleware, async (req, res) => {
+    try {
+        const user_id = req.user.id;
+
+        const result = await pool.query(
+            `SELECT *
+FROM feedback_responses
+WHERE user_iid = $1
+ORDER BY created_at DESC
+`,
+            [user_id]
+        );
+
+        res.json({
+            success: true,
+            count: result.rows.length,
+            feedbacks: result.rows
+        });
+    } catch (err) {
+        console.error("❌ Error fetching user feedbacks:", err);
+        res.status(500).json({ success: false, message: err.message });
+    }
+});
 
 module.exports = router;
